@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multi_agent_rag_lit_review"
+version = "0.1.0"
+description = "Multi-Agent RAG System for Systematic Literature Review"
+authors = [{name = "Antigravity", email = "antigravity@google.com"}]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "langchain",
+    "langchain-community",
+    "langgraph",
+    "chromadb",
+    "sentence-transformers",
+    "pymupdf",
+    "fastapi",
+    "uvicorn",
+    "python-dotenv",
+    "ipykernel",
+    "pandas"
+]
