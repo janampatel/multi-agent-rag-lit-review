@@ -6,14 +6,15 @@ This repository hosts a **Multi-Agent RAG System** designed to perform systemati
 
 The system is built on a **Shared Vector Store** model where multiple specialized agents operate:
 
-1.  **Ingestion Agent**: Parses PDFs and indexes them into ChromaDB.
-2.  **Retrieval Agents**: Specialized retrievers for different aspects (Methods, Results, etc.).
-3.  **Aggregator Agent**: Synthesizes findings from multiple retrievals into a coherent review.
+1.  **Ingestion Agent**: Parses PDFs, chunks text, and indexes them into a vector store.
+2.  **Query Expansion Agent**: Uses an LLM to generate diverse, targeted search queries from a single research topic.
+3.  **Retrieval Agents**: Fetches relevant context using cosine similarity.
+4.  **Aggregator Agent**: Synthesizes findings from multiple retrievals into a coherent, cited literature review using an LLM.
 
 ## 🚀 Tech Stack
 
--   **LLM**: Supports Local LLMs (via Ollama) or API-based.
--   **Vector DB**: ChromaDB (Run locally).
+-   **LLM**: Supports Local LLMs (via Ollama, specifically `llama3`) or API-based.
+-   **Vector Store**: Lightweight, in-memory vector store with JSON persistence (no heavy C++ dependencies).
 -   **Orchestration**: LangGraph.
 -   **Embeddings**: Sentence-Transformers (HuggingFace).
 
@@ -21,20 +22,25 @@ The system is built on a **Shared Vector Store** model where multiple specialize
 
 ```
 multi_agent_rag_lit_review/
-├── agents/                 # Agent logic (Research, Screening, etc.)
-├── rag/                    # RAG pipeline (Ingest, Embed, Retrieve)
+├── agents/                 # Agent logic (Query Expansion, Aggregation)
+├── rag/                    # RAG pipeline (Ingest, Embed, Retrieve, Index)
 ├── orchestration/          # LangGraph workflows
 ├── app/                    # API / Frontend entry points
 ├── notebooks/              # Experiments & POCs
-└── data/                   # Local storage for PDFs & ChromaDB
+└── data/                   # Local storage for PDFs & Index
 ```
 
 ## ⚡ Quick Start
 
-1.  **Install Dependencies**:
+1.  **Prerequisite**: Install [Ollama](https://ollama.com) and pull the model:
+    ```bash
+    ollama pull llama3
+    ```
+
+2.  **Install Dependencies**:
     ```bash
     pip install -r requirements.txt
     ```
 
-2.  **Run POC**:
-    Open `notebooks/poc.ipynb` to see a minimal working example.
+3.  **Run POC**:
+    Open `notebooks/poc.ipynb` to see the agents in action.

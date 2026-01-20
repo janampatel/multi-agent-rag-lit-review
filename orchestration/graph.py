@@ -20,11 +20,19 @@ def expand_query(state: AgentState):
 
 def retrieve_documents(state: AgentState):
     retriever = Retriever()
-    # Simple loop over queries (MVP just has 1)
     all_docs = []
+    seen_contents = set()
+    
     for q in state["expanded_queries"]:
         docs = retriever.retrieve(q)
-        all_docs.extend(docs)
+        for doc in docs:
+            # Simple deduplication based on content matching
+            # In production, use a unique doc ID or hash
+            if doc["content"] not in seen_contents:
+                all_docs.append(doc)
+                seen_contents.add(doc["content"])
+                
+    print(f"Total unique documents retrieved: {len(all_docs)}")
     return {"retrieved_docs": all_docs}
 
 def synthesize_review(state: AgentState):

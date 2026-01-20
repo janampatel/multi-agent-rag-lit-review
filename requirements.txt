@@ -1,7 +1,7 @@
 langchain
 langchain-community
 langgraph
-chromadb
+langgraph
 sentence-transformers
 pymupdf
 fastapi

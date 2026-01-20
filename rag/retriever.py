@@ -10,6 +10,7 @@ class Retriever:
         """
         End-to-end retrieval: Query -> Embed -> Search -> Return Results
         """
+        print(f"Retrieving for: '{query}'")
         # 1. Embed Query
         query_embedding = embed_texts([query])[0]
         
