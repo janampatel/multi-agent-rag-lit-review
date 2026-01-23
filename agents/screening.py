@@ -1,6 +1,80 @@
 
-# Placeholder for Screening Agent
+from typing import List, Dict
+import json
+from langchain_community.chat_models import ChatOllama
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 class ScreeningAgent:
-    def screen(self, papers: list) -> list:
-        # MVP: Return all papers
-        return papers
+    def __init__(self):
+        self.llm = ChatOllama(
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+            model=os.getenv("OLLAMA_MODEL", "llama3"),
+            temperature=0, # Deterministic for screening
+            format="json" # Force JSON mode if model supports it
+        )
+        
+        self.prompt = PromptTemplate(
+            template="""You are a strict screener for a Systematic Literature Review.
+            
+            Research Topic: "{query}"
+            
+            Evaluate the following papers. Return a JSON object with a single key "relevant_ids" containing the list of ID numbers for papers that are RELEVANT to the topic.
+            Reject general papers if they don't match the specific research question.
+            
+            Papers to screen:
+            {papers_text}
+            
+            JSON Output:""",
+            input_variables=["query", "papers_text"]
+        )
+        self.chain = self.prompt | self.llm | JsonOutputParser()
+
+    def screen(self, papers: List[Dict], query: str, batch_size: int = 5) -> List[Dict]:
+        """
+        Screens a list of papers in batches and returns only relevant ones.
+        """
+        print(f"Screening {len(papers)} papers for query: '{query}'...")
+        relevant_papers = []
+        
+        # Process in batches
+        for i in range(0, len(papers), batch_size):
+            batch = papers[i:i+batch_size]
+            batch_text = ""
+            # Map simplified IDs for the LLM context
+            batch_map = {} 
+            
+            for idx, p in enumerate(batch):
+                # We use a temporary simple ID (0, 1, 2...) for the prompt to save tokens
+                # and avoid confusion with long vector IDs
+                simple_id = idx 
+                batch_map[simple_id] = p
+                # Limit content length significantly for screening speed
+                content_preview = p.get('content', '')[:300].replace('\n', ' ')
+                batch_text += f"[ID {simple_id}]: {content_preview}...\n"
+                
+            try:
+                response = self.chain.invoke({
+                    "query": query,
+                    "papers_text": batch_text
+                })
+                
+                # Extract IDs
+                kept_ids = response.get("relevant_ids", [])
+                
+                # Map back to original paper objects
+                for kid in kept_ids:
+                    if kid in batch_map:
+                        relevant_papers.append(batch_map[kid])
+                        
+            except Exception as e:
+                print(f"Error screening batch {i}: {e}")
+                # Fallback: keep all if screening fails to avoid data loss
+                relevant_papers.extend(batch)
+                
+        print(f"Screening complete. Kept {len(relevant_papers)}/{len(papers)} papers.")
+        return relevant_papers
