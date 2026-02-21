@@ -68,8 +68,12 @@ class ScreeningAgent:
                 
                 # Map back to original paper objects
                 for kid in kept_ids:
-                    if kid in batch_map:
-                        relevant_papers.append(batch_map[kid])
+                    try:
+                        kid_int = int(kid)
+                        if kid_int in batch_map:
+                            relevant_papers.append(batch_map[kid_int])
+                    except (ValueError, TypeError):
+                        continue
                         
             except Exception as e:
                 print(f"Error screening batch {i}: {e}")
