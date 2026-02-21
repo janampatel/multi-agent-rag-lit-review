@@ -43,6 +43,15 @@ multi_agent_rag_lit_review/
     pip install -r requirements.txt
     ```
 
-3.  **Run POC**:
-    Open `notebooks/poc.ipynb` to see the full pipeline:
-    *   Ingestion -> Query Expansion -> Retrieval -> **Screening** -> Synthesis.
+3.  **Run the System**:
+    You can now run the system via CLI with custom queries:
+    ```bash
+    # Basic run
+    python run_demo.py --query "Machine unlearning in federated learning"
+
+    # Skip ingestion if already indexed
+    python run_demo.py --query "Local Differential Privacy" --skip-ingest
+    ```
+
+4.  **Explore**:
+    Check the `outputs/` directory (after Phase 3) for generated literature reviews or open `notebooks/poc.ipynb` for interactive experimentation.

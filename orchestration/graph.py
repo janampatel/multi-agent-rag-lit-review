@@ -1,4 +1,5 @@
 
+from typing import TypedDict, List, Dict
 from langgraph.graph import StateGraph, END
 from agents.query_expansion import QueryExpansionAgent
 from agents.screening import ScreeningAgent
@@ -9,7 +10,7 @@ from rag.retriever import Retriever
 class AgentState(TypedDict):
     query: str
     expanded_queries: List[str]
-    retrieved_docs: List[dict]
+    retrieved_docs: List[Dict]
     final_response: str
 
 # Node Functions

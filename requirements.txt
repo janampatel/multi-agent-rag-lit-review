@@ -1,7 +1,6 @@
 langchain
 langchain-community
 langgraph
-langgraph
 sentence-transformers
 pymupdf
 fastapi
@@ -9,3 +8,5 @@ uvicorn
 python-dotenv
 ipykernel
 pandas
+faiss-cpu
+rank-bm25
