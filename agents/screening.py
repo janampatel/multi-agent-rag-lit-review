@@ -13,7 +13,7 @@ class ScreeningAgent:
     def __init__(self):
         self.llm = ChatOllama(
             base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-            model=os.getenv("OLLAMA_MODEL", "llama3"),
+            model=os.getenv("OLLAMA_MODEL", "llama2"),
             temperature=0, # Deterministic for screening
             format="json" # Force JSON mode if model supports it
         )

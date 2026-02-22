@@ -12,7 +12,7 @@ class AggregatorAgent:
     def __init__(self):
         self.llm = ChatOllama(
             base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-            model=os.getenv("OLLAMA_MODEL", "llama3"),
+            model=os.getenv("OLLAMA_MODEL", "llama2"),
             temperature=0.3 # Low temp for factual synthesis
         )
         

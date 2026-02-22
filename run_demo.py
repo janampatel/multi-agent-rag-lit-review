@@ -83,8 +83,9 @@ def run_agent_workflow(query: str):
         
     except Exception as e:
         print(f"\nError running the agent workflow: {e}")
-        print("Ensure that Ollama is running and the 'llama3' model is pulled.")
-        print("Try running: 'ollama pull llama3' in your terminal.")
+        print("Ensure that Ollama is running and the model set in .env is pulled.")
+        print("Currently using model:", os.getenv('OLLAMA_MODEL', 'llama2'))
+        print("To pull a different model: 'ollama pull <model_name>'")
 
 def main():
     parser = argparse.ArgumentParser(description="Multi-Agent RAG for Literature Review")
