@@ -1,95 +1,104 @@
 
-import json
-import os
-import math
 import hashlib
+import os
 from typing import List, Dict
 
+import chromadb
+from chromadb.config import Settings
+
+
 class VectorStore:
+    """
+    Production vector store backed by ChromaDB with persistent HNSW indexing.
+
+    Key improvements over the previous JSON-based store:
+    - O(log N) approximate nearest-neighbour search (HNSW) instead of O(N) brute force.
+    - Native persistence — no manual JSON serialisation required.
+    - Built-in deduplication via upsert: re-ingesting the same PDF is a no-op.
+    - Cosine similarity configured at the collection level.
+    """
+
+    COLLECTION_NAME = "rag_documents"
+
     def __init__(self, persist_directory: str = "data/chroma_db"):
         self.persist_directory = persist_directory
-        self.db_path = os.path.join(persist_directory, "db.json")
-        self.documents = []
-        self._load_db()
+        os.makedirs(persist_directory, exist_ok=True)
 
-    def _ensure_dir(self):
-        if not os.path.exists(self.persist_directory):
-            os.makedirs(self.persist_directory)
+        self.client = chromadb.PersistentClient(path=persist_directory)
+        self.collection = self.client.get_or_create_collection(
+            name=self.COLLECTION_NAME,
+            metadata={"hnsw:space": "cosine"},  # Use cosine similarity
+        )
+        print(f"ChromaDB ready — collection '{self.COLLECTION_NAME}' "
+              f"has {self.collection.count()} documents.")
 
-    def _load_db(self):
-        if os.path.exists(self.db_path):
-            with open(self.db_path, 'r', encoding='utf-8') as f:
-                self.documents = json.load(f)
-
-    def _save_db(self):
-        self._ensure_dir()
-        with open(self.db_path, 'w', encoding='utf-8') as f:
-            json.dump(self.documents, f)
+    # ------------------------------------------------------------------
+    # Ingestion
+    # ------------------------------------------------------------------
 
     def _content_hash(self, text: str) -> str:
-        """Generates an MD5 hash of the text to use as a unique document identifier."""
-        return hashlib.md5(text.encode('utf-8')).hexdigest()
+        """Stable MD5 hash of content — used as the ChromaDB document ID."""
+        return hashlib.md5(text.encode("utf-8")).hexdigest()
 
     def add_documents(self, documents: List[Dict], embeddings: List[List[float]]):
         """
-        Adds documents to the store with deduplication via content hashing.
-        Re-running ingestion on the same PDF will not create duplicate entries.
+        Upserts documents into ChromaDB.
+        Using upsert (not add) means re-running ingestion on the same source
+        is completely safe — existing documents are updated in place, not duplicated.
         """
-        # Build a set of hashes already in the store for O(1) lookup
-        existing_hashes = {doc.get("content_hash") for doc in self.documents}
+        if not documents:
+            print("No documents to add.")
+            return
 
-        new_count = 0
-        skipped_count = 0
-
+        ids, texts, metas, embs = [], [], [], []
         for doc, emb in zip(documents, embeddings):
             content_hash = self._content_hash(doc["page_content"])
+            # Ensure all metadata values are ChromaDB-compatible (str / int / float / bool)
+            safe_meta = {k: str(v) for k, v in doc.get("metadata", {}).items()}
 
-            if content_hash in existing_hashes:
-                skipped_count += 1
-                continue  # Duplicate — skip silently
+            ids.append(content_hash)
+            texts.append(doc["page_content"])
+            metas.append(safe_meta)
+            embs.append(emb)
 
-            entry = {
-                "page_content": doc["page_content"],
-                "metadata": doc["metadata"],
-                "embedding": emb,
-                "content_hash": content_hash
-            }
-            self.documents.append(entry)
-            existing_hashes.add(content_hash)
-            new_count += 1
+        before = self.collection.count()
+        self.collection.upsert(
+            ids=ids,
+            documents=texts,
+            metadatas=metas,
+            embeddings=embs,
+        )
+        after = self.collection.count()
+        new_count = after - before
+        skipped = len(documents) - new_count
+        print(f"Ingestion complete: {new_count} new chunks added, "
+              f"{skipped} duplicates skipped. "
+              f"Total in store: {after}.")
 
-        self._save_db()
-        print(f"Ingestion complete: {new_count} new chunks added, {skipped_count} duplicates skipped.")
+    # ------------------------------------------------------------------
+    # Retrieval
+    # ------------------------------------------------------------------
 
     def query(self, query_embedding: List[float], n_results: int = 5) -> Dict:
         """
-        Queries the vector store using cosine similarity.
-        Returns a dict structure compatible with ChromaDB's output format.
+        Queries ChromaDB with a query embedding.
+        Returns results in the same dict structure as before so the Retriever
+        layer requires zero changes.
+
+        ChromaDB with cosine space returns distances in [0, 2] where 0 = identical.
+        We keep that convention so callers can interpret distances naturally.
         """
-        if not self.documents:
+        total = self.collection.count()
+        if total == 0:
+            print("Warning: VectorStore is empty. Please ingest documents first.")
             return {"ids": [[]], "documents": [[]], "metadatas": [[]], "distances": [[]]}
 
-        results = []
-        for doc in self.documents:
-            doc_emb = doc["embedding"]
-            score = self._cosine_similarity(query_embedding, doc_emb)
-            results.append({"doc": doc, "score": score})
+        # Can't ask for more results than we have
+        k = min(n_results, total)
 
-        # Sort descending by similarity score
-        results.sort(key=lambda x: x["score"], reverse=True)
-        top_k = results[:n_results]
-
-        return {
-            "ids": [[str(i) for i in range(len(top_k))]],
-            "documents": [[r["doc"]["page_content"] for r in top_k]],
-            "metadatas": [[r["doc"]["metadata"] for r in top_k]],
-            "distances": [[round(1 - r["score"], 4) for r in top_k]]
-        }
-
-    def _cosine_similarity(self, v1: List[float], v2: List[float]) -> float:
-        dot_product = sum(a * b for a, b in zip(v1, v2))
-        magnitude_v1 = math.sqrt(sum(a * a for a in v1))
-        magnitude_v2 = math.sqrt(sum(a * a for a in v2))
-        if magnitude_v1 * magnitude_v2 == 0:
-            return 0.0
-        return dot_product / (magnitude_v1 * magnitude_v2)
+        results = self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=k,
+            include=["documents", "metadatas", "distances"],
+        )
+        return results

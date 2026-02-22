@@ -2,6 +2,7 @@ langchain
 langchain-community
 langgraph
 sentence-transformers
+chromadb
 pymupdf
 fastapi
 uvicorn
