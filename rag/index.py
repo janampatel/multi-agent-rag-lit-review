@@ -2,12 +2,12 @@
 import json
 import os
 import math
+import hashlib
 from typing import List, Dict
 
 class VectorStore:
     def __init__(self, persist_directory: str = "data/chroma_db"):
         self.persist_directory = persist_directory
-        # Simulating a persistent store with a JSON file
         self.db_path = os.path.join(persist_directory, "db.json")
         self.documents = []
         self._load_db()
@@ -26,50 +26,64 @@ class VectorStore:
         with open(self.db_path, 'w', encoding='utf-8') as f:
             json.dump(self.documents, f)
 
+    def _content_hash(self, text: str) -> str:
+        """Generates an MD5 hash of the text to use as a unique document identifier."""
+        return hashlib.md5(text.encode('utf-8')).hexdigest()
+
     def add_documents(self, documents: List[Dict], embeddings: List[List[float]]):
         """
-        Adds documents to the in-memory store and persists to JSON.
+        Adds documents to the store with deduplication via content hashing.
+        Re-running ingestion on the same PDF will not create duplicate entries.
         """
+        # Build a set of hashes already in the store for O(1) lookup
+        existing_hashes = {doc.get("content_hash") for doc in self.documents}
+
+        new_count = 0
+        skipped_count = 0
+
         for doc, emb in zip(documents, embeddings):
+            content_hash = self._content_hash(doc["page_content"])
+
+            if content_hash in existing_hashes:
+                skipped_count += 1
+                continue  # Duplicate — skip silently
+
             entry = {
                 "page_content": doc["page_content"],
                 "metadata": doc["metadata"],
-                "embedding": emb
+                "embedding": emb,
+                "content_hash": content_hash
             }
             self.documents.append(entry)
-        
+            existing_hashes.add(content_hash)
+            new_count += 1
+
         self._save_db()
-        print(f"Stored {len(documents)} documents in temporary JSON store at {self.db_path}")
+        print(f"Ingestion complete: {new_count} new chunks added, {skipped_count} duplicates skipped.")
 
     def query(self, query_embedding: List[float], n_results: int = 5) -> Dict:
         """
-        Queries the vector store using cosine similarity (pure python/math implementation).
-        Returns a dict structure similar to ChromaDB's output for compatibility.
+        Queries the vector store using cosine similarity.
+        Returns a dict structure compatible with ChromaDB's output format.
         """
+        if not self.documents:
+            return {"ids": [[]], "documents": [[]], "metadatas": [[]], "distances": [[]]}
+
         results = []
-        
         for doc in self.documents:
             doc_emb = doc["embedding"]
             score = self._cosine_similarity(query_embedding, doc_emb)
-            results.append({
-                "doc": doc,
-                "score": score
-            })
-            
-        # Sort by score descending
+            results.append({"doc": doc, "score": score})
+
+        # Sort descending by similarity score
         results.sort(key=lambda x: x["score"], reverse=True)
         top_k = results[:n_results]
-        
-        # Format like ChromaDB output: 
-        # {'documents': [[...]], 'metadatas': [[...]], 'ids': [[...]], 'distances': [[...]]}
-        # Note: Chroma uses 'distances' (lower is better) or 'similarities' depending on config.
-        # We'll just return structures the downstream code expects.
-        
+
         return {
-            "ids": [[str(i) for i in range(len(top_k))]], # Dummy IDs
+            "ids": [[str(i) for i in range(len(top_k))]],
             "documents": [[r["doc"]["page_content"] for r in top_k]],
             "metadatas": [[r["doc"]["metadata"] for r in top_k]],
-            "distances": [[1 - r["score"] for r in top_k]] # Fake distance
+            "distances": [[round(1 - r["score"], 4) for r in top_k]]
         }
 
     def _cosine_similarity(self, v1: List[float], v2: List[float]) -> float:
