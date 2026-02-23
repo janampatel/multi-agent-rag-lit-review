@@ -42,3 +42,7 @@ chroma_db/
 
 # Notebooks
 .ipynb_checkpoints
+
+# Phase 3: Generated outputs and cache (local only)
+outputs/
+.cache/
