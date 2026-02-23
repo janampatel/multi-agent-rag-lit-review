@@ -15,6 +15,7 @@ from rag.ingest import load_pdf, chunk_text
 from rag.embed import embed_texts
 from rag.index import VectorStore
 from orchestration.graph import app
+from utils.exporter import export_all
 
 def ensure_data_directory(data_dir: str):
     if not os.path.exists(data_dir):
@@ -63,7 +64,7 @@ def ingest_data(pdf_path: str, persist_directory: str):
     vs.add_documents(chunks, embeddings)
     print("Ingestion complete!")
 
-def run_agent_workflow(query: str):
+def run_agent_workflow(query: str, export: bool = False):
     initial_state = {
         "query": query,
         "expanded_queries": [],
@@ -80,6 +81,13 @@ def run_agent_workflow(query: str):
         print("\n--- FINAL SYNTHESIZED RESPONSE ---\n")
         print(result['final_response'])
         print("\n----------------------------------")
+
+        if export:
+            export_all(
+                query=query,
+                review_text=result['final_response'],
+                docs=result['retrieved_docs'],
+            )
         
     except Exception as e:
         print(f"\nError running the agent workflow: {e}")
@@ -97,6 +105,8 @@ def main():
                         help="Skip ingestion phase")
     parser.add_argument("--persist-dir", type=str, default="data/chroma_db",
                         help="Directory for vector store persistence")
+    parser.add_argument("--export", action="store_true",
+                        help="Export results to outputs/ as Markdown, BibTeX and JSON")
     
     args = parser.parse_args()
     
@@ -121,7 +131,7 @@ def main():
     else:
         print("Skipping ingestion phase as requested.")
     
-    run_agent_workflow(args.query)
+    run_agent_workflow(args.query, export=args.export)
 
 if __name__ == "__main__":
     main()

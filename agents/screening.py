@@ -6,14 +6,16 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 import os
 from dotenv import load_dotenv
+from utils.cache import cached_call
 
 load_dotenv()
 
 class ScreeningAgent:
     def __init__(self):
+        self.model_name = os.getenv("OLLAMA_MODEL", "llama2")
         self.llm = ChatOllama(
             base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-            model=os.getenv("OLLAMA_MODEL", "llama2"),
+            model=self.model_name,
             temperature=0, # Deterministic for screening
             format="json" # Force JSON mode if model supports it
         )
@@ -58,10 +60,15 @@ class ScreeningAgent:
                 batch_text += f"[ID {simple_id}]: {content_preview}...\n"
                 
             try:
-                response = self.chain.invoke({
-                    "query": query,
-                    "papers_text": batch_text
-                })
+                response = cached_call(
+                    fn=lambda: self.chain.invoke({"query": query, "papers_text": batch_text}),
+                    key_data={
+                        "agent": "screening",
+                        "model": self.model_name,
+                        "query": query,
+                        "batch_text": batch_text,
+                    }
+                )
                 
                 # Extract IDs
                 kept_ids = response.get("relevant_ids", [])

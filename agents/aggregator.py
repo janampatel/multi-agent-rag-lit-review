@@ -5,14 +5,16 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 import os
 from dotenv import load_dotenv
+from utils.cache import cached_call
 
 load_dotenv()
 
 class AggregatorAgent:
     def __init__(self):
+        self.model_name = os.getenv("OLLAMA_MODEL", "llama2")
         self.llm = ChatOllama(
             base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-            model=os.getenv("OLLAMA_MODEL", "llama2"),
+            model=self.model_name,
             temperature=0.3 # Low temp for factual synthesis
         )
         
@@ -56,10 +58,15 @@ class AggregatorAgent:
             evidence_text += f"[{cid}] (Source: {source}): {content}\n\n"
             
         try:
-            review = self.chain.invoke({
-                "query": query,
-                "evidence": evidence_text
-            })
+            review = cached_call(
+                fn=lambda: self.chain.invoke({"query": query, "evidence": evidence_text}),
+                key_data={
+                    "agent": "aggregator",
+                    "model": self.model_name,
+                    "query": query,
+                    "evidence": evidence_text,
+                }
+            )
             return review
         except Exception as e:
             print(f"Error in aggregation: {e}")
