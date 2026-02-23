@@ -5,14 +5,16 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import CommaSeparatedListOutputParser
 import os
 from dotenv import load_dotenv
+from utils.cache import cached_call
 
 load_dotenv()
 
 class QueryExpansionAgent:
     def __init__(self):
+        self.model_name = os.getenv("OLLAMA_MODEL", "llama2")
         self.llm = ChatOllama(
             base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-            model=os.getenv("OLLAMA_MODEL", "llama2"),
+            model=self.model_name,
             temperature=0.7
         )
         self.output_parser = CommaSeparatedListOutputParser()
@@ -36,18 +38,26 @@ class QueryExpansionAgent:
     def process(self, original_query: str) -> List[str]:
         """
         Expands a single research topic into multiple search queries.
+        Results are cached on disk — re-running with the same query is instant.
         """
         try:
             print(f"Expanding query: '{original_query}'...")
-            expanded_queries = self.chain.invoke({"topic": original_query})
-            
+            expanded_queries = cached_call(
+                fn=lambda: self.chain.invoke({"topic": original_query}),
+                key_data={
+                    "agent": "query_expansion",
+                    "model": self.model_name,
+                    "query": original_query,
+                }
+            )
+
             # Clean up potentially messy output
             cleaned_queries = [q.strip() for q in expanded_queries if q.strip()]
-            
-            # Ensure original is kept if model fails or just as a fallback
+
+            # Ensure original is kept as a fallback
             if original_query not in cleaned_queries:
                 cleaned_queries.insert(0, original_query)
-                
+
             print(f"Generated {len(cleaned_queries)} variations.")
             return cleaned_queries
         except Exception as e:
