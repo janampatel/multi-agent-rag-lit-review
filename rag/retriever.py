@@ -1,10 +1,19 @@
 
 from .index import VectorStore
 from .embed import embed_texts
+import os
 
 class Retriever:
-    def __init__(self):
-        self.vector_store = VectorStore()
+    def __init__(self, persist_directory: str = None):
+        # Auto-detect correct path based on current working directory
+        if persist_directory is None:
+            if os.path.exists("data/faiss_index"):
+                persist_directory = "data/faiss_index"
+            elif os.path.exists("../data/faiss_index"):
+                persist_directory = "../data/faiss_index"
+            else:
+                persist_directory = "data/faiss_index"
+        self.vector_store = VectorStore(persist_directory=persist_directory)
 
     def retrieve(self, query: str, k: int = 3):
         """

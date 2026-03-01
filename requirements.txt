@@ -6,6 +6,7 @@ diskcache
 pymupdf
 fastapi
 uvicorn
+python-multipart
 python-dotenv
 ipykernel
 pandas

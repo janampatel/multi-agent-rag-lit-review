@@ -16,12 +16,15 @@ load_dotenv()
 
 
 def _build_evidence(docs: List[Dict], max_chars: int = 2000) -> str:
-    """Formats the source documents into a compact evidence string."""
+    """Formats the source documents into a compact evidence string with metadata."""
     evidence = ""
     for i, doc in enumerate(docs, 1):
-        source = doc.get("metadata", {}).get("source", "Unknown")
+        meta = doc.get("metadata", {})
+        title = meta.get("title", meta.get("filename", "Unknown"))
+        authors = meta.get("authors", "Unknown Authors")
+        year = meta.get("year", "Unknown Year")
         snippet = doc.get("content", "")[:200].replace("\n", " ")
-        evidence += f"[{i}] {snippet}...\n"
+        evidence += f"[{i}] {title} ({authors}, {year}): {snippet}...\n"
         if len(evidence) >= max_chars:
             break
     return evidence
@@ -42,7 +45,8 @@ class MethodsSectionWriter:
     INSTRUCTION = (
         "Write a concise 'Methods & Approaches' section for a literature review. "
         "Summarize the key methodologies described in the evidence. "
-        "Cite sources using [N] format. Be factual. Max 250 words."
+        "Use ONLY the citations [1], [2], etc. that match the evidence provided. "
+        "Do NOT make up references. Be factual. Max 250 words."
     )
 
     def write(self, docs: List[Dict], query: str) -> str:
@@ -61,7 +65,8 @@ class ResultsSectionWriter:
     INSTRUCTION = (
         "Write a concise 'Results & Benchmarks' section for a literature review. "
         "Summarize empirical results, metrics, and comparisons from the evidence. "
-        "Cite sources using [N] format. Be factual. Max 250 words."
+        "Use ONLY the citations [1], [2], etc. that match the evidence provided. "
+        "Do NOT make up references. Be factual. Max 250 words."
     )
 
     def write(self, docs: List[Dict], query: str) -> str:
@@ -80,7 +85,8 @@ class ChallengesSectionWriter:
     INSTRUCTION = (
         "Write a concise 'Open Challenges & Future Work' section for a literature review. "
         "Identify limitations and open problems from the evidence. "
-        "Cite sources using [N] format. Be factual. Max 250 words."
+        "Use ONLY the citations [1], [2], etc. that match the evidence provided. "
+        "Do NOT make up references. Be factual. Max 250 words."
     )
 
     def write(self, docs: List[Dict], query: str) -> str:
@@ -101,3 +107,34 @@ def merge_sections(methods: str, results: str, challenges: str, query: str) -> s
         f"## Results & Benchmarks\n\n{results.strip()}\n\n"
         f"## Open Challenges & Future Work\n\n{challenges.strip()}\n"
     )
+
+
+def add_references(review: str, docs: List[Dict]) -> str:
+    """Appends a References section in IEEE format with actual document metadata."""
+    refs = "\n\n## References\n\n"
+    
+    # Deduplicate by filename to avoid duplicate references
+    seen_files = set()
+    unique_docs = []
+    for doc in docs:
+        filename = doc.get("metadata", {}).get("filename", "")
+        if filename and filename not in seen_files:
+            seen_files.add(filename)
+            unique_docs.append(doc)
+    
+    for i, doc in enumerate(unique_docs, 1):
+        meta = doc.get("metadata", {})
+        title = meta.get("title", meta.get("filename", "Unknown"))
+        authors = meta.get("authors", "Unknown Authors")
+        year = meta.get("year", "Unknown")
+        filename = meta.get("filename", "")
+        
+        # Clean up title - remove ellipsis and truncate if too long
+        title = title.replace("…", "").strip()
+        if len(title) > 150:
+            title = title[:150].rsplit(" ", 1)[0] + "..."
+        
+        # Format in IEEE style: [N] Authors, "Title," Filename, Year.
+        refs += f'[{i}] {authors}, "{title}," {filename}, {year}.\n\n'
+    
+    return review + refs

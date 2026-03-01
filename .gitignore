@@ -46,3 +46,9 @@ chroma_db/
 # Phase 3: Generated outputs and cache (local only)
 outputs/
 .cache/
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+frontend/.env*.local
