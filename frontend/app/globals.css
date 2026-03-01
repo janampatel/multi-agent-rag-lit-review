@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.progress-bar {
+  transition: width 0.5s ease-out;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+.prose h1 { @apply text-3xl font-bold mb-4 text-gray-900; }
+.prose h2 { @apply text-2xl font-semibold mt-6 mb-3 text-gray-800; }
+.prose h3 { @apply text-xl font-medium mt-4 mb-2 text-gray-700; }
+.prose p { @apply mb-3 text-gray-700 leading-relaxed; }
+.prose strong { @apply font-semibold text-gray-900; }
+.prose em { @apply italic; }
