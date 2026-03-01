@@ -1,24 +1,17 @@
 
 from typing import List, Dict
 import json
-from langchain_community.chat_models import ChatOllama
-from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
 import os
 from dotenv import load_dotenv
-from utils.cache import cached_call
+from utils.backboard_langchain import BackboardLLM
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
 
 load_dotenv()
 
 class ScreeningAgent:
     def __init__(self):
-        self.model_name = os.getenv("OLLAMA_MODEL", "llama2")
-        self.llm = ChatOllama(
-            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-            model=self.model_name,
-            temperature=0, # Deterministic for screening
-            format="json" # Force JSON mode if model supports it
-        )
+        self.llm = BackboardLLM(temperature=0, use_memory=False)  # Deterministic for screening
         
         self.prompt = PromptTemplate(
             template="""You are a strict screener for a Systematic Literature Review.
@@ -40,35 +33,23 @@ class ScreeningAgent:
         """
         Screens a list of papers in batches and returns only relevant ones.
         """
-        print(f"Screening {len(papers)} papers for query: '{query}'...")
+        print(f"[Backboard] Screening {len(papers)} papers for query: '{query}'...")
         relevant_papers = []
         
         # Process in batches
         for i in range(0, len(papers), batch_size):
             batch = papers[i:i+batch_size]
             batch_text = ""
-            # Map simplified IDs for the LLM context
             batch_map = {} 
             
             for idx, p in enumerate(batch):
-                # We use a temporary simple ID (0, 1, 2...) for the prompt to save tokens
-                # and avoid confusion with long vector IDs
                 simple_id = idx 
                 batch_map[simple_id] = p
-                # Limit content length significantly for screening speed
                 content_preview = p.get('content', '')[:300].replace('\n', ' ')
                 batch_text += f"[ID {simple_id}]: {content_preview}...\n"
                 
             try:
-                response = cached_call(
-                    fn=lambda: self.chain.invoke({"query": query, "papers_text": batch_text}),
-                    key_data={
-                        "agent": "screening",
-                        "model": self.model_name,
-                        "query": query,
-                        "batch_text": batch_text,
-                    }
-                )
+                response = self.chain.invoke({"query": query, "papers_text": batch_text})
                 
                 # Extract IDs
                 kept_ids = response.get("relevant_ids", [])
@@ -87,5 +68,5 @@ class ScreeningAgent:
                 # Fallback: keep all if screening fails to avoid data loss
                 relevant_papers.extend(batch)
                 
-        print(f"Screening complete. Kept {len(relevant_papers)}/{len(papers)} papers.")
+        print(f"[Backboard] Screening complete. Kept {len(relevant_papers)}/{len(papers)} papers.")
         return relevant_papers

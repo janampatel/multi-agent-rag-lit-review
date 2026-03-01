@@ -2,22 +2,17 @@
 agents/section_writers.py — Focused section writers for the literature review.
 
 Each writer produces one section of the review using a short, focused prompt.
-Running sequentially avoids threading issues with Ollama on Windows.
-Prompts are capped to keep LLM response time low.
+Backboard handles caching and provides faster inference than local Ollama.
 """
 
 import os
 from typing import List, Dict
-from langchain_community.chat_models import ChatOllama
+from dotenv import load_dotenv
+from utils.backboard_langchain import BackboardLLM
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from dotenv import load_dotenv
-from utils.cache import cached_call
 
 load_dotenv()
-
-_OLLAMA_BASE = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama2")
 
 
 def _build_evidence(docs: List[Dict], max_chars: int = 2000) -> str:
@@ -33,12 +28,7 @@ def _build_evidence(docs: List[Dict], max_chars: int = 2000) -> str:
 
 
 def _make_chain():
-    llm = ChatOllama(
-        base_url=_OLLAMA_BASE,
-        model=_OLLAMA_MODEL,
-        temperature=0.3,
-        num_predict=350,  # Cap output tokens for speed
-    )
+    llm = BackboardLLM(temperature=0.3, use_memory=False)
     prompt = PromptTemplate(
         template="{instruction}\n\nResearch Topic: {query}\n\nEvidence:\n{evidence}\n\nSection:",
         input_variables=["instruction", "query", "evidence"],
@@ -58,15 +48,11 @@ class MethodsSectionWriter:
     def write(self, docs: List[Dict], query: str) -> str:
         chain = _make_chain()
         evidence = _build_evidence(docs)
-        return cached_call(
-            fn=lambda: chain.invoke({
-                "instruction": self.INSTRUCTION,
-                "query": query,
-                "evidence": evidence,
-            }),
-            key_data={"writer": "methods", "model": _OLLAMA_MODEL,
-                      "query": query, "evidence": evidence},
-        )
+        return chain.invoke({
+            "instruction": self.INSTRUCTION,
+            "query": query,
+            "evidence": evidence,
+        })
 
 
 class ResultsSectionWriter:
@@ -81,15 +67,11 @@ class ResultsSectionWriter:
     def write(self, docs: List[Dict], query: str) -> str:
         chain = _make_chain()
         evidence = _build_evidence(docs)
-        return cached_call(
-            fn=lambda: chain.invoke({
-                "instruction": self.INSTRUCTION,
-                "query": query,
-                "evidence": evidence,
-            }),
-            key_data={"writer": "results", "model": _OLLAMA_MODEL,
-                      "query": query, "evidence": evidence},
-        )
+        return chain.invoke({
+            "instruction": self.INSTRUCTION,
+            "query": query,
+            "evidence": evidence,
+        })
 
 
 class ChallengesSectionWriter:
@@ -104,15 +86,11 @@ class ChallengesSectionWriter:
     def write(self, docs: List[Dict], query: str) -> str:
         chain = _make_chain()
         evidence = _build_evidence(docs)
-        return cached_call(
-            fn=lambda: chain.invoke({
-                "instruction": self.INSTRUCTION,
-                "query": query,
-                "evidence": evidence,
-            }),
-            key_data={"writer": "challenges", "model": _OLLAMA_MODEL,
-                      "query": query, "evidence": evidence},
-        )
+        return chain.invoke({
+            "instruction": self.INSTRUCTION,
+            "query": query,
+            "evidence": evidence,
+        })
 
 
 def merge_sections(methods: str, results: str, challenges: str, query: str) -> str:

@@ -24,7 +24,7 @@ class VectorStore:
                         (one entry per vector, same positional order as the index)
     """
 
-    def __init__(self, persist_directory: str = "data/chroma_db"):
+    def __init__(self, persist_directory: str = "data/faiss_index"):
         self.persist_directory = persist_directory
         os.makedirs(persist_directory, exist_ok=True)
 

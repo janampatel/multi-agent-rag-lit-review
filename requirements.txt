@@ -12,3 +12,4 @@ pandas
 faiss-cpu
 rank-bm25
 arxiv
+requests
