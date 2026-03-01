@@ -172,8 +172,6 @@ npm run dev
 3. **Start Research**: Click button and watch real-time progress
 4. **View Results**: See formatted literature review with IEEE-style references
 
-### 6. CLI Mode (Legacy)
-
 ```bash
 # Basic run (ingest PDFs in data/ then query)
 python run_demo.py --query "Machine unlearning in federated learning"
