@@ -202,8 +202,10 @@ def run_agent_workflow(
     except Exception as e:
         print(f"\nError running the agent workflow: {e}")
         import traceback; traceback.print_exc()
-        print("Ensure Ollama is running and the model set in .env is pulled.")
-        print("Currently using model:", os.getenv('OLLAMA_MODEL', 'llama2'))
+        print("\nTroubleshooting:")
+        print("1. Ensure BACKBOARD_API_KEY is set in .env")
+        print("2. Run 'python test_backboard.py' to verify connection")
+        print("3. Check that your Backboard account has access to the configured model")
 
 
 def main():
@@ -216,9 +218,9 @@ def main():
                         help="Directory for vector store persistence")
     parser.add_argument("--skip-ingest", action="store_true",
                         help="Skip ingestion phase")
-    parser.add_argument("--export",     action="store_true",
+    parser.add_argument("--export",     action="store_true", default=True,
                         help="Export results to outputs/ as Markdown, BibTeX and JSON")
-    parser.add_argument("--arxiv",      action="store_true",
+    parser.add_argument("--arxiv",      action="store_true", default=True,
                         help="Fetch live ArXiv papers for the query")
     parser.add_argument("--human-review", action="store_true",
                         help="Pause after screening for human review of paper list")

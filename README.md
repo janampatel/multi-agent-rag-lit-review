@@ -56,12 +56,12 @@ expand_query ──► retrieve (local FAISS + optional ArXiv)
 
 | Component | Technology |
 |---|---|
-| LLM | Ollama (local) — supports any model, default `llama2` |
+| LLM | **Backboard API** (Cohere, OpenAI, Anthropic, Google) — cloud-hosted with persistent memory |
 | Orchestration | LangGraph |
 | Embeddings | `sentence-transformers` (`all-MiniLM-L6-v2`) |
 | Vector Store | FAISS (`faiss-cpu`) |
 | PDF Parsing | PyMuPDF + Semantic Scholar API |
-| Caching | `diskcache` |
+| Memory | Backboard persistent memory (cross-session) |
 
 ## 📂 Project Structure
 
@@ -95,24 +95,34 @@ expand_query ──► retrieve (local FAISS + optional ArXiv)
 
 ### 1. Prerequisites
 
-Install [Ollama](https://ollama.com) and pull a model:
-```bash
-ollama pull llama2        # default (requires ~4GB RAM)
-# or for lower memory:
-ollama pull tinyllama     # ~660MB
+**Get Backboard API Key:**
+1. Sign up at [backboard.io](https://backboard.io)
+2. Navigate to Settings → API Keys
+3. Create and copy your API key
+
+Update `.env`:
+```env
+BACKBOARD_API_KEY=your_api_key_here
+BACKBOARD_MODEL_PROVIDER=cohere
+BACKBOARD_MODEL_NAME=command-r7b-12-2024
 ```
-Update `.env` if using a non-default model:
-```
-OLLAMA_MODEL=tinyllama
-OLLAMA_BASE_URL=http://localhost:11434
-```
+
+**Alternative Models:**
+- `openai/gpt-4-turbo-preview` (high quality)
+- `anthropic/claude-3-haiku` (fast)
+- `google/gemini-1.5-flash` (cost-effective)
 
 ### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Run the System
+### 3. Test Connection
+```bash
+python test_backboard.py
+```
+
+### 4. Run the System
 
 ```bash
 # Basic run (ingest PDFs in data/ then query)
